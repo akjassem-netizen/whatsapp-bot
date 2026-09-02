@@ -9,17 +9,8 @@ app = Flask(__name__)
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "hashimi2026").strip()
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "").strip().strip('"').strip("'")
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "").strip().strip('"').strip("'")
-raw_gemini_key = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_API_KEY = raw_gemini_key.strip().strip('"').strip("'") if raw_gemini_key else None
-
 ADMIN_PHONE = "9647702956021"
 PROCESSED_MESSAGES = set()
-WORKING_MODEL = None
-
-if GEMINI_API_KEY:
-    ai_client = genai.Client(api_key=GEMINI_API_KEY)
-else:
-    ai_client = genai.Client()
 
 SYSTEM_PROMPT = """
 أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في بغداد - زيونة.
@@ -48,58 +39,63 @@ SYSTEM_PROMPT = """
 "⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف رسمياً، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 """
 
-def generate_ai_response(user_query):
-    global WORKING_MODEL
-    full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
-
-    # 1. إذا كان الموديل شغالاً مسبقاً نستخدمه فوراً
-    if WORKING_MODEL:
-        try:
-            res = ai_client.models.generate_content(model=WORKING_MODEL, contents=full_prompt)
-            if res and res.text:
-                return res.text
-        except Exception as e:
-            print(f"Cached model failed: {e}", flush=True)
-            WORKING_MODEL = None
-
-    # 2. الفحص الذكي لاختيار الموديل المتوفر وتثبيته
+def get_gemini_client():
+    api_key = (
+        os.environ.get("GEMINI_API_KEY") 
+        or os.environ.get("GOOGLE_API_KEY") 
+        or os.environ.get("API_KEY") 
+        or ""
+    ).strip().strip('"').strip("'")
+    
+    if not api_key:
+        return None, "مفتاح GEMINI_API_KEY غير موجود في متغيرات سيرفر Render"
+    
     try:
-        for m in ai_client.models.list():
-            m_name = m.name
-            m_clean = m_name.replace("models/", "")
-            if any(skip in m_clean.lower() for skip in ["embed", "imagen", "veo", "aqa"]):
-                continue
-            for candidate in [m_clean, m_name]:
-                try:
-                    res = ai_client.models.generate_content(model=candidate, contents=full_prompt)
-                    if res and res.text:
-                        WORKING_MODEL = candidate
-                        print(f"Model locked to: {WORKING_MODEL}", flush=True)
-                        return res.text
-                except Exception:
-                    continue
+        client = genai.Client(api_key=api_key)
+        return client, None
     except Exception as e:
-        print(f"Search error: {e}", flush=True)
+        return None, f"خطأ في تشغيل العميل: {e}"
 
-    return None
+def generate_ai_response(user_query):
+    client, err = get_gemini_client()
+    if err:
+        return None, err
+        
+    full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
+    last_err = ""
+    
+    for model_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+        try:
+            res = client.models.generate_content(model=model_name, contents=full_prompt)
+            if res and res.text:
+                return res.text, None
+        except Exception as e:
+            last_err = f"الموديل {model_name} تعثر: {e}"
+            print(last_err, flush=True)
+            
+    return None, last_err
 
 def process_message_background(message):
     try:
         from_number = message["from"]
         msg_type = message.get("type")
 
-        # 1. الرسائل النصية
+        # 1. الرسائل المكتوبة
         if msg_type == "text":
             user_query = message["text"]["body"]
             print(f"Message from {from_number}: {user_query}", flush=True)
 
-            ai_reply = generate_ai_response(user_query)
+            ai_reply, error_detail = generate_ai_response(user_query)
+            
+            # إذا تعذر الذكاء الاصطناعي نرسل البديل وننبه الإدارة بالخطأ فوراً
             if not ai_reply:
                 ai_reply = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
                     "يرجى حجز موعد استشارة رسمي عبر الرابط التالي:\n"
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
+                if error_detail and from_number != ADMIN_PHONE:
+                    send_whatsapp_message(ADMIN_PHONE, f"⚠️ *تنبيه تعذر الذكاء الاصطناعي:*\n{error_detail}")
 
             send_whatsapp_message(from_number, ai_reply)
 
