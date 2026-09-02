@@ -15,55 +15,45 @@ GEMINI_API_KEY = raw_gemini_key.strip().strip('"').strip("'") if raw_gemini_key 
 # رقم المحامي الشخصي للإشعارات والمستندات
 ADMIN_PHONE = "9647702956021"
 
+# سجل لمنع تكرار الرسائل الناتجة عن محاولات Meta
+PROCESSED_MESSAGES = set()
+
 # إعداد عميل الذكاء الاصطناعي
 if GEMINI_API_KEY:
     ai_client = genai.Client(api_key=GEMINI_API_KEY)
 else:
     ai_client = genai.Client()
 
-# فحص وطباعة الموديلات المتاحة في السجلات عند الإقلاع
-try:
-    print("=== AVAILABLE GEMINI MODELS ON THIS ACCOUNT ===", flush=True)
-    for m in ai_client.models.list():
-        print(f"Model: {m.name}", flush=True)
-    print("===============================================", flush=True)
-except Exception as e:
-    print(f"Startup listing info: {e}", flush=True)
-
-# الضوابط القانونية ورابط الحجز
 SYSTEM_PROMPT = """
-أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في العراق.
+أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في بغداد - زيونة.
 
-المهام وقواعد الإجابة الصارمة:
-1. قدّم إجابات قانونية عامة وموجزة جداً ومختصرة، دون الدخول في تفاصيل فنية دقيقة أو شروحات إجرائية.
-2. يُمنع منعاً باتاً شرح كيفية إقامة الدعاوى أو صياغة اللوائح والعرائض القضائية أو تفصيل خطوات التقاضي أمام المحاكم.
-3. وضّح للموكل أن الاستفسارات والرسائل يتم الاطلاع عليها وتدقيقها من قبل الأستاذ المحامي شخصياً وفق ما يتناسب مع جدول أعماله والتزاماته في المحاكم.
+قواعد الإجابة الإلزامية:
+1. الإيجاز والتركيز المباشر: أجب عن سؤال السائل مباشرة في الجملة الأولى بدون مقدمات إنشائية.
+   - إذا سأل عن الأسعار: اذكر سعر الاستشارة التي تخص طلبه مباشرة دون سرد تفاصيل المكتب، مع رابط الاستمارة.
+   - إذا سأل عن الموقع: اذكر الموقع مباشرة.
+   - إذا سأل عن الدوام: اذكر الأوقات مباشرة.
+2. لائحة الأجور الرسمية للاستشارات:
+   - استشارات الأحوال الشخصية (كالطلاق، النفقة، الحضانة): 75,000 دينار عراقي.
+   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي.
+   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي.
+3. سياسة الدفع الصارمة (إلكتروني فقط):
+   - الدفع إلكتروني حصراً ومسبقاً لجميع الاستشارات عبر وسائل الدفع المحلية المعتمدة أو روابط الدفع لتثبيت الموعد.
+   - لا يُقبل الدفع النقدي (الكاش) نهائياً، حتى لو كانت الاستشارة حضورية داخل مقر المكتب.
+4. رابط حجز المواعيد وتثبيتها:
+   https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
+5. أوقات العمل والموقع:
+   - العنوان: بغداد - زيونة - قرب دار الأزياء العراقية.
+   - الدوام: من الأحد إلى الخميس. الفترة الصباحية (8:00 ص - 2:00 ظ) للمحاكم، والمقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
+6. يُمنع منعاً باتاً صياغة لوائح دعاوى أو تقديم شروحات إجرائية تفصيلية عبر الشات؛ بل وجّه السائل لحجز موعد استشارة رسمي مع الأستاذ المحامي.
 
-الموقع وأوقات العمل:
-- العنوان: بغداد - زيونة - قرب دار الأزياء العراقية (البحث في خرائط Google: مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية).
-- أوقات العمل: من الأحد إلى الخميس (الجمعة والسبت عطلة، وتُستثنى العطل الرسمية).
-- الفترة الصباحية (8:00 ص - 2:00 ظ): تواجد المحامي في أروقة المحاكم ومتابعة المعاملات بالدوائر والجهات الرسمية.
-- فترة المقابلات المكتبية (2:00 ظ - 4:00 ع): مخصصة للاستشارات والمقابلات المباشرة بعد تثبيت موعد مسبق.
-
-حجز المواعيد ولائحة الأجور وآلية الدفع:
-- إمكانية الاستشارة: حضورياً (في مقر المكتب) أو عن بُعد (عبر الهاتف أو المنصات الرقمية).
-- عند رغبة الموكل بتثبيت موعد، زوّده برابط استمارة الحجز الإلكترونية مباشرة:
-https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
-- لائحة أجور الاستشارات الرسمية المباشرة مع المحامي:
-  * استشارات الأحوال الشخصية: 75,000 دينار عراقي.
-  * الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي.
-  * الاستشارات الجزائية والجنائية: 300,000 دينار عراقي.
-- آلية الدفع: وضّح للموكل أنه بعد إرسال استمارة الحجز، يتواصل المكتب معه لتأكيد الموعد وإرسال تفاصيل الدفع عبر وسائل الدفع الإلكترونية المحلية المعتمدة أو روابط الدفع المباشرة (Payment Links) للاستشارة عن بُعد، أو سدادها مباشرة داخل المكتب للمقابلات الحضورية.
-
-نص إخلاء المسؤولية الإلزامي:
-اختم كل رد بدون استثناء بالنص التالي في سطر مستقل:
-"⚠️ تنبيه إخلاء مسؤولية: هذا رد آلي مبرمج صادر عن المساعد الذكي لمكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية لغرض الاسترشاد والتوجيه الأولي فقط، ولا يُعد استشارة قانونية رسمية ولا ينشئ رابطة توكيل. لحجز موعد استشارة رسمية ودراسة القضية (حضورياً أو عن بُعد)، يُرجى التقديم عبر رابط الاستمارة: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+نص التنبيه الختامي (يوضع في نهاية كل رد بسطرين فقط):
+"⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف رسمياً، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 """
 
 def generate_ai_response(user_query):
     full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
     
-    # 1. البحث التلقائي عبر قائمة الموديلات المتاحة في الحساب
+    # محاولة استخدام النموذج المتاح في الحساب
     try:
         for m in ai_client.models.list():
             m_clean = m.name.replace("models/", "")
@@ -72,26 +62,17 @@ def generate_ai_response(user_query):
             try:
                 res = ai_client.models.generate_content(model=m_clean, contents=full_prompt)
                 if res and res.text:
-                    print(f"Success with discovered model: {m_clean}", flush=True)
                     return res.text
             except Exception:
                 continue
     except Exception as e:
-        print(f"Model listing discovery error: {e}", flush=True)
+        print(f"Listing error: {e}", flush=True)
 
-    # 2. قائمة احتياطية في حال تعذر القائمة
-    fallback_list = [
-        "gemini-2.0-flash",
-        "gemini-2.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro-latest"
-    ]
-    for candidate in fallback_list:
+    # قائمة بديلة
+    for candidate in ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]:
         try:
             res = ai_client.models.generate_content(model=candidate, contents=full_prompt)
             if res and res.text:
-                print(f"Success with fallback model: {candidate}", flush=True)
                 return res.text
         except Exception:
             continue
@@ -123,54 +104,75 @@ def webhook():
             and "messages" in data["entry"][0]["changes"][0]["value"]
         ):
             message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+            msg_id = message.get("id")
+
+            # منع تكرار معالجة نفس الرسالة نهائياً
+            if msg_id in PROCESSED_MESSAGES:
+                return "EVENT_RECEIVED", 200
+            PROCESSED_MESSAGES.add(msg_id)
+            if len(PROCESSED_MESSAGES) > 1000:
+                PROCESSED_MESSAGES.clear()
+
             from_number = message["from"]
             msg_type = message.get("type")
 
-            # معالجة النصوص
+            # 1. الرسائل النصية
             if msg_type == "text":
                 user_query = message["text"]["body"]
-                print(f"Received query from {from_number}: {user_query}", flush=True)
+                print(f"Message from {from_number}: {user_query}", flush=True)
 
                 ai_reply = generate_ai_response(user_query)
                 if not ai_reply:
                     ai_reply = (
                         "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n"
-                        "نعتذر عن تعذر معالجة الطلب آلياً في الوقت الحالي. "
-                        "يتم الاطلاع على الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
+                        "نعتذر عن تعذر المعالجة الآلية حالياً. يتم تدقيق الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
                         "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                     )
 
                 send_whatsapp_message(from_number, ai_reply)
 
-                # إشعار فوري للمحامي
+                # تنبيه المحامي
                 if from_number != ADMIN_PHONE:
-                    admin_summary = (
-                        f"📩 *استفسار جديد عبر البوت*\n"
-                        f"👤 *المراجع:* +{from_number}\n"
-                        f"💬 *السؤال:* {user_query}\n\n"
-                        f"🤖 *رد البوت:*\n{ai_reply}"
-                    )
-                    send_whatsapp_message(ADMIN_PHONE, admin_summary)
+                    admin_msg = f"📩 *استفسار جديد*\n👤 *من:* +{from_number}\n💬 *النص:* {user_query}\n\n🤖 *الرد:*\n{ai_reply}"
+                    send_whatsapp_message(ADMIN_PHONE, admin_msg)
 
-            # معالجة الصور والمستندات
+            # 2. الصور والملفات
             elif msg_type in ["image", "document"]:
                 media_id = message[msg_type].get("id")
-                caption = message[msg_type].get("caption", "لا يوجد وصف")
-                doc_title = "صورة" if msg_type == "image" else "مستند PDF/ملف"
+                caption = message[msg_type].get("caption", "")
+                doc_title = "صورة" if msg_type == "image" else "مستند PDF"
 
-                receipt_msg = (
-                    "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n\n"
-                    f"✅ تم استلام الـ ({doc_title}) بنجاح. سيتم تدقيقه وعرضه على الأستاذ المحامي شخصياً وفق جدول أعماله والتزاماته في المحاكم.\n\n"
-                    "لتثبيت موعد مقابلة رسمية:\n"
+                receipt = (
+                    f"✅ تم استلام الـ ({doc_title}) بنجاح.\n"
+                    "سيتم تدقيق الأوراق وعرضها على الأستاذ المحامي وفق جدول أعماله في المحاكم.\n\n"
+                    "لحجز وتثبيت موعد رسمي (الدفع إلكتروني مسبقاً):\n"
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
-                send_whatsapp_message(from_number, receipt_msg)
+                send_whatsapp_message(from_number, receipt)
 
                 if from_number != ADMIN_PHONE:
-                    notice = f"📎 *وصل {doc_title} جديد للمكتب*\n👤 *من المراجع:* +{from_number}\n📝 *الوصف:* {caption}"
+                    notice = f"📎 *وصل {doc_title} جديد*\n👤 *من:* +{from_number}\n📝 {caption}"
                     sent = send_whatsapp_media(ADMIN_PHONE, msg_type, media_id, notice)
                     if not sent:
                         send_whatsapp_message(ADMIN_PHONE, notice)
+
+            # 3. البصمات والرسائل الصوتية
+            elif msg_type in ["audio", "voice"]:
+                audio_obj = message.get("audio") or message.get("voice") or {}
+                media_id = audio_obj.get("id")
+
+                audio_receipt = (
+                    "🎙️ تم استلام التسجيل الصوتي بنجاح.\n"
+                    "سيتم الاستماع إليه وتدقيقه من قبل الأستاذ المحامي وفق جدول أعماله.\n\n"
+                    "لتثبيت موعد استشارة رسمي (الدفع إلكتروني مسبقاً عبر الاستمارة):\n"
+                    "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+                )
+                send_whatsapp_message(from_number, audio_receipt)
+
+                if from_number != ADMIN_PHONE and media_id:
+                    notice = f"🎙️ *تسجيل صوتي وارد من موكل*\n👤 *الرقم:* +{from_number}"
+                    send_whatsapp_message(ADMIN_PHONE, notice)
+                    send_whatsapp_media(ADMIN_PHONE, "audio", media_id)
 
         return "EVENT_RECEIVED", 200
 
@@ -201,7 +203,7 @@ def send_whatsapp_media(to_number, media_type, media_id, caption=""):
         "type": media_type,
         media_type: {"id": media_id}
     }
-    if caption:
+    if caption and media_type != "audio":
         payload[media_type]["caption"] = caption
 
     res = requests.post(url, headers=headers, json=payload)
