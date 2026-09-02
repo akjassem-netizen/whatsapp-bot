@@ -1,15 +1,15 @@
 import os
-import time
 import threading
 import requests
 from flask import Flask, request
-from google import genai
 
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "hashimi2026").strip()
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "").strip().strip('"').strip("'")
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "").strip().strip('"').strip("'")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip().strip('"').strip("'")
+
 ADMIN_PHONE = "9647702956021"
 PROCESSED_MESSAGES = set()
 
@@ -18,15 +18,15 @@ SYSTEM_PROMPT = """
 
 قواعد اللغة والردود الإلزامية:
 1. مطابقة لغة المستفسر بدقة تامة:
-   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالبنغالية أجب بالبنغالية تماماً، إذا كتب بالكردية أجب بالكردية، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالصينية أجب بالصينية، وإذا كتب بالعربية أجب بالعربية).
+   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالبنغالية أجب بالبنغالية، إذا كتب بالكردية أجب بالكردية، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالصينية أجب بالصينية، وإذا كتب بالعربية أجب بالعربية).
    - ترجم نص التنبيه الختامي إلى نفس لغة المراجع.
 
-2. قاعدة الترجمة للإدارة (مهمة جداً):
+2. قاعدة الترجمة للإدارة:
    - إذا كانت رسالة المستفسر بأي لغة غير العربية، اكتب ردك الكامل الموجه للمستفسر بلغته أولاً، ثم أضف في نهاية النص الفاصل التالي تماماً:
      ###ترجمة_للإدارة###
      واكتب تحته بالعربية:
-     - ترجمة سؤال المراجع: (شرح بالعربية لسؤال المراجع ومطلبه)
-     - ترجمة الرد المرسل إليه: (ترجمة عربية موجزة لما أخبرت به المراجع مثل السعر والموقع والمواعيد)
+     - ترجمة سؤال المراجع: (شرح بالعربية لسؤال ومطلب المراجع)
+     - ترجمة الرد المرسل إليه: (ترجمة عربية موجزة لما أخبرت به المراجع من سعر وموقع ومواعيد)
    - إذا كانت رسالة المستفسر باللغة العربية، أجب بالعربية مباشرة ولا تضع الفاصل نهائياً.
 
 قواعد الاستشارة الإلزامية:
@@ -48,60 +48,34 @@ SYSTEM_PROMPT = """
 "⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف رسمياً، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 """
 
-def get_gemini_client():
-    api_key = (
-        os.environ.get("GEMINI_API_KEY") 
-        or os.environ.get("GOOGLE_API_KEY") 
-        or os.environ.get("API_KEY") 
-        or ""
-    ).strip().strip('"').strip("'")
-    
-    if not api_key:
-        return None, "مفتاح GEMINI_API_KEY غير مضاف في إعدادات Render"
-    
-    try:
-        client = genai.Client(api_key=api_key)
-        return client, None
-    except Exception as e:
-        return None, f"خطأ في تشغيل العميل: {e}"
-
 def generate_ai_response(user_query):
-    client, err = get_gemini_client()
-    if err:
-        return None, err
-        
-    full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
-    last_err = ""
-    
-    # محاولة حتى 3 مرات مع انتظار لتجاوز ضغط السيرفرات اللحظي (503)
-    for attempt in range(3):
-        try:
-            res = client.models.generate_content(model="gemini-3.6-flash", contents=full_prompt)
-            if res and res.text:
-                return res.text, None
-        except Exception as e:
-            last_err = f"محاولة {attempt + 1}: {e}"
-            print(f"Attempt {attempt + 1} failed: {e}", flush=True)
-            time.sleep(1.5)  # انتظار ثانية ونصف قبل تكرار المحاولة لتجاوز الضغط
+    if not GROQ_API_KEY:
+        return None, "مفتاح GROQ_API_KEY غير مضاف في متغيرات Render"
 
-    # فحص احتياطي عام في حال استمرار الضغط
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_query}
+        ],
+        "temperature": 0.2
+    }
+
     try:
-        for m in client.models.list():
-            name = m.name.replace("models/", "")
-            if any(skip in name.lower() for skip in ["embed", "imagen", "veo", "aqa"]):
-                continue
-            if name == "gemini-3.6-flash":
-                continue
-            try:
-                res = client.models.generate_content(model=name, contents=full_prompt)
-                if res and res.text:
-                    return res.text, None
-            except Exception:
-                continue
+        response = requests.post(url, headers=headers, json=payload, timeout=20)
+        if response.status_code == 200:
+            data = response.json()
+            reply = data["choices"][0]["message"]["content"]
+            return reply, None
+        else:
+            return None, f"Groq Error {response.status_code}: {response.text}"
     except Exception as e:
-        last_err += f" | listing error: {e}"
-
-    return None, last_err
+        return None, f"Connection Error: {e}"
 
 def separate_client_and_admin_text(raw_text):
     delimiter = "###ترجمة_للإدارة###"
@@ -123,7 +97,7 @@ def process_message_background(message):
             print(f"Message from {from_number}: {user_query}", flush=True)
 
             ai_raw_reply, error_detail = generate_ai_response(user_query)
-            
+
             if not ai_raw_reply:
                 client_reply = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
@@ -136,10 +110,10 @@ def process_message_background(message):
             else:
                 client_reply, admin_translation = separate_client_and_admin_text(ai_raw_reply)
 
-            # إرسال الرد للمراجع بلغته الأصلية
+            # إرسال الرد للمراجع بلغته
             send_whatsapp_message(from_number, client_reply)
 
-            # إرسال التفاصيل لرقمك الشخصي مع الترجمة الكاملة
+            # إرسال الإشعار والترجمة لرقمك الشخصي
             if from_number != ADMIN_PHONE:
                 if admin_translation:
                     admin_msg = (
@@ -150,7 +124,7 @@ def process_message_background(message):
                     )
                 else:
                     admin_msg = f"📩 *استفسار جديد*\n👤 *المستفسر:* +{from_number}\n💬 *النص:* {user_query}\n\n🤖 *الرد:*\n{client_reply}"
-                
+
                 send_whatsapp_message(ADMIN_PHONE, admin_msg)
 
         # 2. الصور والمستندات
@@ -196,7 +170,7 @@ def process_message_background(message):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Legal Assistant Bot is Active", 200
+    return "Legal Assistant Bot is Active (Groq Powered)", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
