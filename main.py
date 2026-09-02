@@ -14,38 +14,37 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip().strip('"').strip("'")
 ADMIN_PHONE = "9647702956021"
 PROCESSED_MESSAGES = set()
 
-SYSTEM_PROMPT = """
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+
+SYSTEM_PROMPT = f"""
 أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في بغداد - زيونة.
 
-مهمتك الإجابة بدقة واحترافية وفق القواعد الصارمة التالية:
+مهمتك: الرد على المراجعين بأسلوب راقٍ، مهذب، محترف، ومريح دون تعقيد أو تنفير، وتوجيههم لملء استمارة حجز الاستشارة وفق القواعد الصارمة التالية:
 
-1. أوقات العمل والمقابلات المكتبية:
-- الدوام الرسمي العام للمكتب: من الأحد إلى الخميس، من الساعة 8:00 صباحاً حتى الساعة 4:00 مساءً.
-- المقابلات والاستشارات المكتبية مع الأستاذ المحامي: محددة حصراً في الفترة ما بين (2:00 ظهراً إلى 4:00 مساءً) بحجز مسبق لتفرغ المحامي في الفترة الصباحية لعمل المحاكم والدوائر.
+1. توحيد لغة الرد:
+- إذا كانت رسالة المراجع باللغة العربية، يجب أن يكون الرد كاملاً باللغة العربية حصراً، بأسلوب ترحيبي وقانوني رصين ومختصر، بدون أي كلمة أو إشعار باللغة الإنجليزية نهائياً.
+- إذا كانت رسالة المراجع بأي لغة أجنبية (إنجليزية، تركية، كردية، إلخ)، يكون الرد كاملاً من البداية إلى النهاية بتلك اللغة حصراً.
 
-2. سياسة الاتصال الهاتفي والتواصل:
-- يُمنع منعاً باتاً اختلاق أي أرقام هواتف من عندك (مثل 0770 وغيرها).
-- إذا سأل المراجع "أقدر اتصل؟" أو طلب مكالمة هاتفية: وضّح له بلطف أن الاتصال الهاتفي والتواصل المباشر مع الأستاذ المحامي متاح ومرحب به، ولكنه يتم حصراً بعد تعبئة الاستمارة الإلكترونية، وتحديد الأتعاب، ودفعها إلكترونياً لتثبيت الموعد رسمياً وفق جدول أعمال المكتب.
+2. سياسة الأتعاب والأسعار:
+- لا تذكر تفاصيل مالية معقدة تنفّر العميل؛ بل وضّح بلطف وأدب أن أجور الاستشارات تبدأ أولياً من 75,000 دينار عراقي، وتُحدد القيمة بدقة بعد مراجعة تفاصيل وموضوع القضية عبر الاستمارة.
 
-3. سياسة الأجور وطرق الدفع وتوقيت الموعد:
-- تبدأ أجور الاستشارات القانونية في المكتب من 75,000 دينار عراقي لقضايا الأحوال الشخصية والمسائل البسيطة، ومن 150,000 دينار لقضايا الشركات والعقود، ومن 300,000 دينار للمسائل الجزائية.
-- الأجر النهائي الدقيق يحدده الأستاذ المحامي بعد مراجعة تفاصيل الطلب عبر الاستمارة.
-- طرق الدفع: إلكترونية حصراً ومسبقاً لتثبيت الحجز (زين كاش، آسيا بي، كي كارد، البطاقات المصرفية فيزا وماستركارد، والتطبيقات البنكية)، ولا يُقبل الدفع النقدي (الكاش) نهائياً حتى داخل مقر المكتب. ويتم تزويد المراجع ببيانات الدفع لاحقاً بعد مراجعة الاستمارة.
-- توقيت موعد الاستشارة: يتم تحديد موعد الاستشارة (سواء كانت حضورية أو هاتفية) وفق جدول أعمال المكتب خلال (24 إلى 48 ساعة) من دفع الرسوم، وفي جميع الأحوال بما لا يتجاوز 72 ساعة كحد أقصى.
-- الموقع: بغداد - زيونة - قرب دار الأزياء العراقية.
-- رابط الاستمارة: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
+3. أوقات العمل والمواعيد (صارم جداً):
+- ساعات الدوام العام والاستفسارات: من 8:00 صباحاً حتى 4:00 عصراً.
+- مواعيد الاستشارات المباشرة (سواء كانت حضورية أو هاتفية):
+  • الفترة الأساسية: يومياً من الساعة 2:00 ظهراً وحتى الساعة 4:00 عصراً (الفترة الصباحية مخصصة لعمل الأستاذ المحامي أمام المحاكم والدوائر).
+  • الفترة المسائية: من 4:00 عصراً وحتى 7:00 مساءً متاحة حصراً بالتنسيق المسبق وحسب جدول العمل.
+  • يُمنع منعاً باتاً حجز أي موعد صباحي قبل الساعة 2:00 ظهراً.
+  • لا توجد أي مواعيد ليلاً بعد الساعة 7:00 مساءً.
 
-4. قاعدة لغة الرد والتنبيه القانوني (صارم جداً):
-- إذا كتب المراجع بأي لغة أجنبية (إنجليزية، بنغالية، تركية، كردية... إلخ)، يجب أن يكون الرد الموجه له كاملاً من البداية إلى النهاية بتلك اللغة حصراً.
-- يُمنع كتابة التنبيه بالعربية للعميل الأجنبي؛ بل يجب ترجمته كاملاً إلى نفس لغة العميل.
-- نص التنبيه بالإنجليزية:
-  "⚖️ Notice: This is an automated preliminary guidance and does not constitute formal legal advice. To schedule a consultation, review your case file, and determine the final fee, please submit your request via the booking form: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
-- (ولأي لغة أخرى ترجم نفس المعنى لتلك اللغة).
+4. آلية حجز الموعد والدفع:
+- لا تطلب رقم الهاتف أو البيانات الشخصية داخل المحادثة؛ بل وجّه العميل دائماً وبشكل مباشر لتعبئة استمارة حجز الاستشارة: {FORM_URL}
+- وضّح له أن المكتب يراجع الطلب بعد إرسال الاستمارة ويتواصل معه مباشرة عبر الواتساب لتزويده ببيانات الدفع الإلكتروني (زين كاش، آسيا بي، كي كارد، ماستركارد/فيزا، التطبيقات المصرفية) وتثبيت أنسب موعد لحضرته.
+- يمنع منعاً باتاً اختلاق أي أرقام هواتف من عندك.
 
 5. نظام إخراج النص:
 ضع ردك بالشكل التالي بدقة:
 [REPLY_START]
-(نص الرد الكامل الموجه للمراجع بلغته هو فقط شاملاً التنبيه المترجم والرابط، بدون أي كلمة عربية إذا كان المراجع أجنبياً)
+(نص الرد الكامل الموجه للمراجع بلغته هو فقط شاملاً رابط الاستمارة، بدون أي كلمة عربية إذا كان المراجع أجنبياً، وبدون أي كلمة إنجليزية إذا كان المراجع عربياً)
 [REPLY_END]
 
 إذا كانت رسالة المراجع بأي لغة غير العربية، أضف هذا القسم في النهاية:
@@ -138,15 +137,9 @@ def parse_ai_response(raw_text, user_query):
     # حظر ومسح أي أرقام هواتف قد يخترعها الذكاء
     client_reply = re.sub(r'(\*?07[3-9]\d{1}[- ]?\d{6,8}\*?|\*?1234567[^\s]*\*?)', '', client_reply).strip()
 
-    # استبدال أي تنبيه عربي ظهر بالخطأ للعميل الأجنبي
-    if not is_arabic and "تنبيه:" in client_reply:
-        notice_en = (
-            "⚖️ Notice: This is an automated preliminary guidance and does not constitute formal legal advice. "
-            "To schedule a consultation, review your case file, and determine the final fee, "
-            "please submit your request via the booking form: "
-            "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
-        )
-        client_reply = re.sub(r'⚖️\s*تنبيه.*', notice_en, client_reply, flags=re.DOTALL).strip()
+    # إزالة أي تنبيه إنجليزي إذا كان العميل يكتب بالعربية لضمان صفاء اللغة
+    if is_arabic:
+        client_reply = re.sub(r'⚖️?\s*Notice:?.*', '', client_reply, flags=re.DOTALL).strip()
 
     return client_reply, admin_trans, is_arabic
 
@@ -163,13 +156,24 @@ def process_message_background(message):
             raw_ai_reply, error_detail = generate_ai_response(user_query)
 
             if not raw_ai_reply:
-                client_reply = (
-                    "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
-                    "يرجى تقديم طلب الاستشارة وتفاصيل القضية عبر الرابط التالي لتحديد الأتعاب وتثبيت الموعد:\n"
-                    "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
-                )
+                # رسالة طوارئ في حال تعطل سيرفر الذكاء
+                is_arabic = bool(re.search(r'[\u0600-\u06FF]', user_query))
+                if is_arabic:
+                    client_reply = (
+                        "أهلاً وسهلاً بحضرتك في مكتب المحامي علي كاظم الهاشمي.\n\n"
+                        "تبدأ أجور الاستشارات من 75,000 دينار عراقي وتُحدد بدقة بعد مراجعة تفاصيل القضية.\n"
+                        "مواعيد الاستشارات تبدأ يومياً من الساعة 2:00 ظهراً إلى 4:00 عصراً (ومن 4:00 إلى 7:00 مساءً بالتنسيق المسبق).\n\n"
+                        "لتثبيت حجزكم وتحديد الموعد المناسب، يرجى ملء الاستمارة وسيتواصل معكم فريقنا عبر الواتساب:\n"
+                        f"{FORM_URL}"
+                    )
+                else:
+                    client_reply = (
+                        "Welcome to the Law Office of Attorney Ali Kadhem Hashimi.\n\n"
+                        "Consultation fees start from 75,000 IQD. Consultations are scheduled between 2:00 PM and 4:00 PM (or 4:00 PM – 7:00 PM upon coordination).\n\n"
+                        "Please submit your request via the form below, and our team will contact you directly via WhatsApp:\n"
+                        f"{FORM_URL}"
+                    )
                 admin_trans = None
-                is_arabic = True
                 if error_detail and from_number != ADMIN_PHONE:
                     send_whatsapp_message(ADMIN_PHONE, f"⚠️ *خطأ فني في الذكاء الاصطناعي:*\n{error_detail}")
             else:
@@ -178,7 +182,7 @@ def process_message_background(message):
             # إرسال الرد للمراجع بلغته الأصلية
             send_whatsapp_message(from_number, client_reply)
 
-            # إرسال التقرير الإداري المترجم لهاتفك الشخصي
+            # إرسال التقرير الإداري لهاتفك الشخصي
             if from_number != ADMIN_PHONE:
                 if is_arabic or not admin_trans:
                     admin_msg = (
@@ -201,13 +205,12 @@ def process_message_background(message):
         elif msg_type in ["image", "document"]:
             media_id = message[msg_type].get("id")
             caption = message[msg_type].get("caption", "")
-            doc_title = "صورة" if msg_type == "image" else "مستند"
+            doc_title = "الصورة" if msg_type == "image" else "المستند"
 
             receipt = (
-                f"✅ تم استلام الـ ({doc_title}) بنجاح، وسيتم عرضه على الأستاذ المحامي وفق جدول أعماله.\n"
-                f"Document/File received successfully and forwarded for legal review.\n\n"
-                "لتثبيت موعد استشارة رسمي / To book an official consultation:\n"
-                "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+                f"أهلاً بك، تم استلام {doc_title} بنجاح وسيتم عرضه على الأستاذ المحامي وفق جدول أعماله.\n\n"
+                "لتثبيت موعد استشارة رسمي، يرجى التفضل بملء الاستمارة وسيتواصل معكم فريقنا عبر الواتساب لتأكيد الموعد:\n"
+                f"{FORM_URL}"
             )
             send_whatsapp_message(from_number, receipt)
 
@@ -223,10 +226,9 @@ def process_message_background(message):
             media_id = audio_obj.get("id")
 
             audio_receipt = (
-                "🎙️ تم استلام التسجيل الصوتي بنجاح، وسيتم الاستماع إليه وتدقيقه من قبل الأستاذ المحامي وفق جدول أعماله.\n"
-                "Voice note received successfully and forwarded to the attorney for review.\n\n"
-                "لتثبيت موعد استشارة رسمي / To book an official consultation:\n"
-                "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+                "أهلاً بك، تم استلام التسجيل الصوتي بنجاح وسيتم الاستماع إليه من قبل الأستاذ المحامي وفق جدول أعماله.\n\n"
+                "لتثبيت موعد استشارة رسمي، يرجى التفضل بملء الاستمارة وسيتواصل معكم فريقنا عبر الواتساب لتأكيد الموعد:\n"
+                f"{FORM_URL}"
             )
             send_whatsapp_message(from_number, audio_receipt)
 
@@ -240,7 +242,7 @@ def process_message_background(message):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Legal Assistant Bot is Active (Updated Policy)", 200
+    return "Legal Assistant Bot is Active (Refined Soft Intake Policy)", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
