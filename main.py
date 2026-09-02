@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # استدعاء المتغيرات السرية من إعدادات الاستضافة
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "hashimi2026")
-WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
+WHATSAPP_TOKEN = os.WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "").strip()
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "1359711617217714")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
