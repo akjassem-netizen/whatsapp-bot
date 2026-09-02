@@ -1,4 +1,6 @@
 import os
+import json
+import re
 import threading
 import requests
 from flask import Flask, request
@@ -16,41 +18,37 @@ PROCESSED_MESSAGES = set()
 SYSTEM_PROMPT = """
 أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في بغداد - زيونة.
 
-قواعد اللغة والردود الإلزامية:
-1. مطابقة لغة المستفسر بدقة تامة:
-   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالبنغالية أجب بالبنغالية، إذا كتب بالكردية أجب بالكردية، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالصينية أجب بالصينية، وإذا كتب بالعربية أجب بالعربية).
-   - ترجم نص التنبيه الختامي إلى نفس لغة المراجع.
+مهمتك الرد على استفسارات المراجعين بدقة وفق القواعد التالية:
 
-2. قاعدة الترجمة للإدارة:
-   - إذا كانت رسالة المستفسر بأي لغة غير العربية، اكتب ردك الكامل الموجه للمستفسر بلغته أولاً، ثم أضف في نهاية النص الفاصل التالي تماماً:
-     ###ترجمة_للإدارة###
-     واكتب تحته بالعربية:
-     - ترجمة سؤال المراجع: (شرح بالعربية لسؤال ومطلب المراجع)
-     - ترجمة الرد المرسل إليه: (ترجمة عربية موجزة لما أخبرت به المراجع من سعر وموقع ومواعيد)
-   - إذا كانت رسالة المستفسر باللغة العربية، أجب بالعربية مباشرة ولا تضع الفاصل نهائياً.
+1. حظر تام للأرقام الهاتفية (صارم جداً):
+   - يُمنع منعاً باتاً وبأي شكل من الأشكال اختلاق، كتابة، أو ذكر أي رقم هاتف إطلاقاً (مثل أرقام 0770 أو غيرها).
+   - إذا طلب المراجع رقماً هاتفياً أو أراد الاتصال، وضّح له بلطف أن المكتب لا يقدم استشارات عبر الاتصال الهاتفي المباشر دون موعد، وأن التواصل وتحديد المواعيد يتم حصراً عبر محادثة الواتساب الحالية وعبر رابط الاستمارة الإلكترونية.
 
-قواعد الاستشارة الإلزامية:
-1. الإيجاز والتركيز المباشر: أجب عن السؤال مباشرة في أول سطر دون مقدمات إنشائية.
-   - إذا سأل عن الأسعار: اذكر سعر الاستشارة التي تخص طلبه مباشرة مع رابط الاستمارة.
-   - إذا سأل عن الموقع: بغداد - زيونة - قرب دار الأزياء العراقية.
-   - إذا سأل عن الدوام: من الأحد إلى الخميس؛ الفترة الصباحية للمحاكم، والمقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
-2. لائحة الأجور الرسمية للاستشارات:
-   - استشارات الأحوال الشخصية (طلاق، نفقة، حضانة): 75,000 دينار عراقي (حوالي 55 دولار أمريكي).
-   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي (حوالي 110 دولار أمريكي).
-   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي (حوالي 220 دولار أمريكي).
-3. سياسة الدفع:
-   - الدفع إلكتروني حصراً ومسبقاً لجميع الاستشارات لتثبيت الحجز، ولا يُقبل الدفع النقدي (الكاش) نهائياً حتى داخل مقر المكتب.
-4. رابط حجز المواعيد:
-   https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
-5. يُمنع صياغة لوائح دعاوى تفصيلية عبر الشات؛ بل وجّه المراجع لحجز موعد استشارة رسمي مع الأستاذ المحامي.
+2. مطابقة لغة العميل وسياسة الرد:
+   - يجب أن يكون الرد الموجه للعميل مكتوباً حصراً باللغة التي كتب بها العميل (بنغالي، إنجليزي، كردي، تركي، عربي... إلخ).
+   - التنبيه القانوني الإلزامي يترجم لنفس لغة العميل في نهاية رده:
+     "⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف وتحديد الأتعاب، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 
-التنبيه الختامي الإلزامي (يترجم لنفس لغة المراجع في نهاية كل رسالة):
-"⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف رسمياً، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+3. قواعد الأسعار والخدمات:
+   - تبدأ أجور الاستشارات القانونية في المكتب من 75,000 دينار عراقي لقضايا الأحوال الشخصية والمسائل البسيطة، ومن 150,000 دينار لقضايا الشركات والعقود، ومن 300,000 دينار للمسائل الجزائية.
+   - وضح للمراجع أن الأجر النهائي الدقيق يحدده الأستاذ المحامي بناءً على حجم القضية ودراسة الملف وساعات العمل، وذلك بعد ملء الاستمارة الإلكترونية.
+   - الدفع إلكتروني حصراً ومسبقاً لتثبيت الحجز بعد تحديد الأجر، ولا يُقبل الدفع النقدي (الكاش) نهائياً حتى داخل المكتب.
+   - الموقع: بغداد - زيونة - قرب دار الأزياء العراقية.
+   - أوقات العمل: من الأحد إلى الخميس؛ المقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
+   - رابط الاستمارة: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
+
+4. صيغة الإخراج الإلزامية (JSON ONLY):
+يجب أن يكون ردك بصيغة JSON فقط متضمناً المفاتيح الثلاثة التالية بدقة دون أي نص خارجي:
+{
+  "client_reply": "نص الرد الكامل الموجه للمراجع بلغته هو فقط شاملاً التنبيه والرابط دون أي كلمة عربية (إلا إذا كان المراجع يتحدث العربية)",
+  "query_translation_ar": "ترجمة عربية دقيقة لسؤال العميل ومطلبه",
+  "reply_translation_ar": "ترجمة عربية موجزة لما أخبرت به العميل (الأسعار، الموقع، حجز الاستمارة...)"
+}
 """
 
 def generate_ai_response(user_query):
     if not GROQ_API_KEY:
-        return None, "مفتاح GROQ_API_KEY غير مضاف في متغيرات Render"
+        return None, None, None, "مفتاح GROQ_API_KEY غير مضاف في متغيرات Render"
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -58,12 +56,10 @@ def generate_ai_response(user_query):
         "Content-Type": "application/json"
     }
 
-    # قائمة الموديلات المجانية الشائعة في جروك بالترتيب
     models_to_try = [
         "llama-3.1-8b-instant",
-        "llama3-8b-8192",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it"
+        "llama-3.3-70b-versatile",
+        "mixtral-8x7b-32768"
     ]
 
     last_err = ""
@@ -72,44 +68,28 @@ def generate_ai_response(user_query):
             "model": model_name,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_query}
+                {"role": "user", "content": f"رسالة العميل هي: {user_query}\nأخرج النتيجة بصيغة JSON حصراً."}
             ],
-            "temperature": 0.2
+            "response_format": {"type": "json_object"},
+            "temperature": 0.1
         }
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=20)
             if response.status_code == 200:
-                data = response.json()
-                return data["choices"][0]["message"]["content"], None
+                raw_content = response.json()["choices"][0]["message"]["content"]
+                parsed = json.loads(raw_content)
+                
+                client_text = parsed.get("client_reply", "").strip()
+                query_ar = parsed.get("query_translation_ar", "").strip()
+                reply_ar = parsed.get("reply_translation_ar", "").strip()
+
+                return client_text, query_ar, reply_ar, None
             else:
                 last_err = f"{model_name}: {response.text}"
         except Exception as e:
             last_err = str(e)
 
-    # محاولة جلب الموديلات المتاحة ديناميكياً إذا فشلت الأسماء المحددة
-    try:
-        models_res = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=10)
-        if models_res.status_code == 200:
-            available = [m["id"] for m in models_res.json().get("data", []) if "whisper" not in m["id"].lower()]
-            for dyn_model in available[:3]:
-                payload["model"] = dyn_model
-                response = requests.post(url, headers=headers, json=payload, timeout=20)
-                if response.status_code == 200:
-                    data = response.json()
-                    return data["choices"][0]["message"]["content"], None
-    except Exception:
-        pass
-
-    return None, f"Groq Error: {last_err}"
-
-def separate_client_and_admin_text(raw_text):
-    delimiter = "###ترجمة_للإدارة###"
-    if delimiter in raw_text:
-        parts = raw_text.split(delimiter, 1)
-        client_reply = parts[0].strip()
-        admin_trans = parts[1].strip()
-        return client_reply, admin_trans
-    return raw_text.strip(), None
+    return None, None, None, f"Groq Error: {last_err}"
 
 def process_message_background(message):
     try:
@@ -121,35 +101,40 @@ def process_message_background(message):
             user_query = message["text"]["body"]
             print(f"Message from {from_number}: {user_query}", flush=True)
 
-            ai_raw_reply, error_detail = generate_ai_response(user_query)
+            client_reply, query_ar, reply_ar, error_detail = generate_ai_response(user_query)
 
-            if not ai_raw_reply:
+            if not client_reply:
                 client_reply = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
-                    "يرجى حجز موعد استشارة رسمي عبر الرابط التالي:\n"
+                    "يرجى حجز موعد استشارة رسمي عبر الرابط التالي لتحديد الأتعاب وتثبيت الموعد:\n"
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
-                admin_translation = None
                 if error_detail and from_number != ADMIN_PHONE:
                     send_whatsapp_message(ADMIN_PHONE, f"⚠️ *خطأ فني في الذكاء الاصطناعي:*\n{error_detail}")
-            else:
-                client_reply, admin_translation = separate_client_and_admin_text(ai_raw_reply)
 
-            # إرسال الرد للمراجع بلغته الصافية
+            # إرسال الرد للعميل بلغته الأصلية فقط
             send_whatsapp_message(from_number, client_reply)
 
-            # إرسال الإشعار والترجمة لرقمك الشخصي
+            # إرسال التقرير الإداري المترجم للأستاذ المحامي على هاتفه الشخصي
             if from_number != ADMIN_PHONE:
-                if admin_translation:
+                is_arabic = bool(re.search(r'[\u0600-\u06FF]', user_query))
+                
+                if is_arabic:
                     admin_msg = (
-                        f"📩 *استفسار وارد (بلغة أجنبية)*\n"
+                        f"📩 *استفسار جديد*\n"
                         f"👤 *المستفسر:* +{from_number}\n"
-                        f"💬 *النص كما ورد:*\n{user_query}\n\n"
-                        f"🌐 *الترجمة الكاملة للأستاذ المحامي:*\n{admin_translation}"
+                        f"💬 *السؤال:* {user_query}\n\n"
+                        f"🤖 *الرد:* {client_reply}"
                     )
                 else:
-                    admin_msg = f"📩 *استفسار جديد*\n👤 *المستفسر:* +{from_number}\n💬 *النص:* {user_query}\n\n🤖 *الرد:*\n{client_reply}"
-
+                    admin_msg = (
+                        f"📩 *استفسار وارد (بلغة أجنبية)*\n"
+                        f"👤 *المستفسر:* +{from_number}\n\n"
+                        f"💬 *نص المراجع الأصلي:*\n{user_query}\n\n"
+                        f"🌐 *ترجمة سؤاله للعربية:*\n{query_ar}\n\n"
+                        f"📝 *ترجمة الرد المرسل إليه:*\n{reply_ar}"
+                    )
+                
                 send_whatsapp_message(ADMIN_PHONE, admin_msg)
 
         # 2. الصور والمستندات
@@ -195,7 +180,7 @@ def process_message_background(message):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Legal Assistant Bot is Active (Groq Powered)", 200
+    return "Legal Assistant Bot is Active (Groq JSON Powered)", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
