@@ -14,6 +14,7 @@ GEMINI_API_KEY = raw_gemini_key.strip().strip('"').strip("'") if raw_gemini_key 
 
 ADMIN_PHONE = "9647702956021"
 PROCESSED_MESSAGES = set()
+WORKING_MODEL = None
 
 if GEMINI_API_KEY:
     ai_client = genai.Client(api_key=GEMINI_API_KEY)
@@ -23,39 +24,63 @@ else:
 SYSTEM_PROMPT = """
 أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في بغداد - زيونة.
 
-قواعد اللغة والردود:
+قواعد اللغة والردود الإلزامية:
 1. مطابقة لغة المستفسر بدقة تامة:
-   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالإنجليزية أجب بإنجليزية قانونية واضحة، إذا كتب بالكردية أجب بالكردية، إذا كتب بالفرنسية أجب بالفرنسية، إذا كتب بالعربية أو العامية العراقية أجب بأسلوب قانوني عراقي رصين ومفهوم).
-   - قم بترجمة التنبيه القانوني الإلزامي في نهاية الرسالة إلى نفس لغة المراجع.
+   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالكردية أجب بالكردية تماماً، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالفرنسية أو التركية أجب بها، وإذا كتب بالعربية أجب بالعربية).
+   - ترجم نص التنبيه الختامي إلى نفس لغة المراجع.
 
 قواعد الاستشارة الإلزامية:
 1. الإيجاز والتركيز المباشر: أجب عن السؤال مباشرة في أول سطر دون مقدمات إنشائية.
-   - إذا سأل عن الأسعار: اذكر سعر الاستشارة التي تخص سؤاله مباشرة مع رابط الاستمارة.
+   - إذا سأل عن الأسعار: اذكر سعر الاستشارة التي تخص طلبه مباشرة مع رابط الاستمارة.
    - إذا سأل عن الموقع: بغداد - زيونة - قرب دار الأزياء العراقية.
    - إذا سأل عن الدوام: من الأحد إلى الخميس؛ الفترة الصباحية للمحاكم، والمقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
 2. لائحة الأجور الرسمية للاستشارات:
-   - استشارات الأحوال الشخصية (طلاق، نفقة، حضانة): 75,000 دينار عراقي (حوالي 55 دولار أمريكي).
-   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي (حوالي 110 دولار أمريكي).
-   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي (حوالي 220 دولار أمريكي).
+   - استشارات الأحوال الشخصية (طلاق، نفقة، حضانة): 75,000 دينار عراقي.
+   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي.
+   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي.
 3. سياسة الدفع:
    - الدفع إلكتروني حصراً ومسبقاً لجميع الاستشارات لتثبيت الحجز، ولا يُقبل الدفع النقدي (الكاش) نهائياً حتى داخل مقر المكتب.
 4. رابط حجز المواعيد:
    https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
-5. يُمنع صياغة لوائح دعاوى تفصيلية عبر المحادثة، بل وجّه المراجع لحجز موعد استشارة رسمي مع الأستاذ المحامي.
+5. يُمنع صياغة لوائح دعاوى تفصيلية عبر الشات؛ بل وجّه المراجع لحجز موعد استشارة رسمي مع الأستاذ المحامي.
 
-التنبيه الختامي الإلزامي (يترجم لنفس لغة المراجع في نهاية الرد):
+التنبيه الختامي الإلزامي (يترجم لنفس لغة المراجع في نهاية كل رسالة):
 "⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف رسمياً، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 """
 
 def generate_ai_response(user_query):
+    global WORKING_MODEL
     full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
-    for candidate in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+
+    # 1. إذا كان الموديل شغالاً مسبقاً نستخدمه فوراً
+    if WORKING_MODEL:
         try:
-            res = ai_client.models.generate_content(model=candidate, contents=full_prompt)
+            res = ai_client.models.generate_content(model=WORKING_MODEL, contents=full_prompt)
             if res and res.text:
                 return res.text
-        except Exception:
-            continue
+        except Exception as e:
+            print(f"Cached model failed: {e}", flush=True)
+            WORKING_MODEL = None
+
+    # 2. الفحص الذكي لاختيار الموديل المتوفر وتثبيته
+    try:
+        for m in ai_client.models.list():
+            m_name = m.name
+            m_clean = m_name.replace("models/", "")
+            if any(skip in m_clean.lower() for skip in ["embed", "imagen", "veo", "aqa"]):
+                continue
+            for candidate in [m_clean, m_name]:
+                try:
+                    res = ai_client.models.generate_content(model=candidate, contents=full_prompt)
+                    if res and res.text:
+                        WORKING_MODEL = candidate
+                        print(f"Model locked to: {WORKING_MODEL}", flush=True)
+                        return res.text
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f"Search error: {e}", flush=True)
+
     return None
 
 def process_message_background(message):
@@ -63,7 +88,7 @@ def process_message_background(message):
         from_number = message["from"]
         msg_type = message.get("type")
 
-        # 1. الرسائل المكتوبة (متعددة اللغات)
+        # 1. الرسائل النصية
         if msg_type == "text":
             user_query = message["text"]["body"]
             print(f"Message from {from_number}: {user_query}", flush=True)
@@ -156,7 +181,6 @@ def webhook():
             if len(PROCESSED_MESSAGES) > 1000:
                 PROCESSED_MESSAGES.clear()
 
-            # تشغيل المعالجة في الخلفية لمنع تكرار الرسائل
             thread = threading.Thread(target=process_message_background, args=(message,))
             thread.daemon = True
             thread.start()
