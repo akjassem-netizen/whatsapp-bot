@@ -1,4 +1,5 @@
 import os
+import time
 import threading
 import requests
 from flask import Flask, request
@@ -17,7 +18,7 @@ SYSTEM_PROMPT = """
 
 قواعد اللغة والردود الإلزامية:
 1. مطابقة لغة المستفسر بدقة تامة:
-   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالكردية أجب بالكردية تماماً، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالصينية أجب بالصينية، وإذا كتب بالعربية أجب بالعربية).
+   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالبنغالية أجب بالبنغالية تماماً، إذا كتب بالكردية أجب بالكردية، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالصينية أجب بالصينية، وإذا كتب بالعربية أجب بالعربية).
    - ترجم نص التنبيه الختامي إلى نفس لغة المراجع.
 
 2. قاعدة الترجمة للإدارة (مهمة جداً):
@@ -72,21 +73,24 @@ def generate_ai_response(user_query):
     full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
     last_err = ""
     
-    candidate_models = ["gemini-3.6-flash", "gemini-3.6-pro", "gemini-3-flash"]
-    
-    for model_name in candidate_models:
+    # محاولة حتى 3 مرات مع انتظار لتجاوز ضغط السيرفرات اللحظي (503)
+    for attempt in range(3):
         try:
-            res = client.models.generate_content(model=model_name, contents=full_prompt)
+            res = client.models.generate_content(model="gemini-3.6-flash", contents=full_prompt)
             if res and res.text:
                 return res.text, None
         except Exception as e:
-            last_err = f"{model_name}: {e}"
-            print(f"Error with {model_name}: {e}", flush=True)
+            last_err = f"محاولة {attempt + 1}: {e}"
+            print(f"Attempt {attempt + 1} failed: {e}", flush=True)
+            time.sleep(1.5)  # انتظار ثانية ونصف قبل تكرار المحاولة لتجاوز الضغط
 
+    # فحص احتياطي عام في حال استمرار الضغط
     try:
         for m in client.models.list():
             name = m.name.replace("models/", "")
             if any(skip in name.lower() for skip in ["embed", "imagen", "veo", "aqa"]):
+                continue
+            if name == "gemini-3.6-flash":
                 continue
             try:
                 res = client.models.generate_content(model=name, contents=full_prompt)
@@ -95,7 +99,7 @@ def generate_ai_response(user_query):
             except Exception:
                 continue
     except Exception as e:
-        last_err = f"Dynamic listing error: {e}"
+        last_err += f" | listing error: {e}"
 
     return None, last_err
 
@@ -132,10 +136,10 @@ def process_message_background(message):
             else:
                 client_reply, admin_translation = separate_client_and_admin_text(ai_raw_reply)
 
-            # إرسال الرد للمراجع بلغته الأصلية الصافية
+            # إرسال الرد للمراجع بلغته الأصلية
             send_whatsapp_message(from_number, client_reply)
 
-            # إرسال التفاصيل لرقمك الشخصي مترجمة بالكامل (سؤال وجواب)
+            # إرسال التفاصيل لرقمك الشخصي مع الترجمة الكاملة
             if from_number != ADMIN_PHONE:
                 if admin_translation:
                     admin_msg = (
