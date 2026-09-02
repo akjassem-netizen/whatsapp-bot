@@ -19,7 +19,7 @@ SYSTEM_PROMPT = """
 
 مهمتك الرد على استفسارات المراجعين بدقة وفق القواعد الصارمة التالية:
 
-1. حظر تام لاختلاق أرقام الهواتف (قاعدة إلزامية قطعية):
+1. حظر تام لاختلاق أرقام الهواتف (قاعدة قطعية):
 - يُمنع منعاً باتاً كتابة أو اختلاق أي رقم هاتف إطلاقاً (مثل 0770 أو أي رقم وهمي آخر).
 - إذا سأل المراجع "أقدر اتصل؟" أو طلب رقم هاتف: وضّح له بأدب أن المكتب لا يقدم استشارات عبر الاتصال الهاتفي المباشر دون موعد مسبق، وأن حجز المواعيد والاستفسارات يتم حصراً عبر محادثة الواتساب هذه وعبر رابط الاستمارة الإلكترونية لترتيب جدول أعمال الأستاذ المحامي.
 
@@ -39,7 +39,7 @@ SYSTEM_PROMPT = """
 4. نظام التنسيق الإلزامي للمخرجات:
 ضع ردك بالشكل التالي بدقة تامة:
 [REPLY_START]
-(اكتب هنا نص الرد الكامل الموجه للمراجع بلغته هو فقط مع الرابط والتنبيه المترجم)
+(اكتب هنا نص الرد الكامل الموجه للمراجع بلغته هو فقط مع الرابط والتنبيه المترجم دون أي كلمة عربية)
 [REPLY_END]
 
 إذا كانت رسالة المراجع بأي لغة غير العربية، أضف هذا القسم في النهاية:
@@ -50,42 +50,63 @@ SYSTEM_PROMPT = """
 (إذا كانت رسالة المراجع بالعربية، لا تكتب قسم ADMIN_TRANS_START نهائياً).
 """
 
+def get_active_groq_model():
+    """الكاشف الذكي: يفحص الموديلات النشطة والمتاحة مجاناً في Groq تلقائياً"""
+    url = "https://api.groq.com/openai/v1/models"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    preferred = [
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.6-27b",
+        "llama-3.1-8b-instant"
+    ]
+    try:
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            active_ids = [m["id"] for m in res.json().get("data", [])]
+            for pref in preferred:
+                if pref in active_ids:
+                    return pref
+            for mid in active_ids:
+                m_low = mid.lower()
+                if not any(x in m_low for x in ["whisper", "orpheus", "guard", "embed", "tts"]):
+                    return mid
+    except Exception:
+        pass
+    return "openai/gpt-oss-20b"
+
 def generate_ai_response(user_query):
     if not GROQ_API_KEY:
         return None, "مفتاح GROQ_API_KEY غير مضاف في متغيرات Render"
 
+    active_model = get_active_groq_model()
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    models_to_try = [
-        "llama-3.1-8b-instant",
-        "llama-3.3-70b-versatile"
-    ]
+    payload = {
+        "model": active_model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_query}
+        ],
+        "temperature": 0.2
+    }
 
-    last_err = ""
-    for model_name in models_to_try:
-        payload = {
-            "model": model_name,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_query}
-            ],
-            "temperature": 0.2
-        }
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=25)
-            if response.status_code == 200:
-                raw_text = response.json()["choices"][0]["message"]["content"]
-                return raw_text, None
-            else:
-                last_err = f"{model_name}: {response.text}"
-        except Exception as e:
-            last_err = str(e)
-
-    return None, f"Groq Error: {last_err}"
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=25)
+        if response.status_code == 200:
+            raw_text = response.json()["choices"][0]["message"]["content"]
+            return raw_text, None
+        else:
+            return None, f"{active_model}: {response.text}"
+    except Exception as e:
+        return None, str(e)
 
 def parse_ai_response(raw_text, user_query):
     is_arabic = bool(re.search(r'[\u0600-\u06FF]', user_query))
@@ -112,7 +133,7 @@ def parse_ai_response(raw_text, user_query):
         if admin_trans:
             admin_trans = admin_trans.replace(tag, "").strip()
 
-    # فلتر أمان برمجي صارم لحذف أي أرقام هواتف قد يخترعها الذكاء
+    # فلتر أمان صارم لحذف أي أرقام هواتف قد يخترعها الذكاء
     client_reply = re.sub(r'(\*?07[3-9]\d{1}[- ]?\d{6,8}\*?|\*?1234567[^\s]*\*?)', '', client_reply).strip()
 
     return client_reply, admin_trans, is_arabic
@@ -207,7 +228,7 @@ def process_message_background(message):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Legal Assistant Bot is Active (Groq Ultra Stable)", 200
+    return "Legal Assistant Bot is Active (Groq Auto-Select)", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
