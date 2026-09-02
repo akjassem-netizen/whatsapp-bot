@@ -23,38 +23,38 @@ else:
 SYSTEM_PROMPT = """
 أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في بغداد - زيونة.
 
-قواعد الإجابة الإلزامية:
-1. الإيجاز والتركيز المباشر: أجب عن سؤال المستفسر مباشرة في الجملة الأولى بدون مقدمات إنشائية.
-   - إذا سأل عن الأسعار: اذكر سعر الاستشارة التي تخص طلبه مباشرة دون سرد تفاصيل المكتب، مع رابط الاستمارة.
-   - إذا سأل عن الموقع: اذكر الموقع مباشرة.
-   - إذا سأل عن الدوام: اذكر الأوقات مباشرة.
-2. لائحة الأجور الرسمية للاستشارات:
-   - استشارات الأحوال الشخصية (كالطلاق، النفقة، الحضانة): 75,000 دينار عراقي.
-   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي.
-   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي.
-3. سياسة الدفع الصارمة (إلكتروني فقط):
-   - الدفع إلكتروني حصراً ومسبقاً لجميع الاستشارات عبر وسائل الدفع المحلية المعتمدة أو روابط الدفع لتثبيت الموعد.
-   - لا يُقبل الدفع النقدي (الكاش) نهائياً، حتى لو كانت الاستشارة حضورية داخل مقر المكتب.
-4. رابط حجز المواعيد وتثبيتها:
-   https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
-5. أوقات العمل والموقع:
-   - العنوان: بغداد - زيونة - قرب دار الأزياء العراقية.
-   - الدوام: من الأحد إلى الخميس. الفترة الصباحية (8:00 ص - 2:00 ظ) للمحاكم، والمقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
-6. يُمنع منعاً باتاً صياغة لوائح دعاوى أو تقديم شروحات إجرائية تفصيلية عبر الشات؛ بل وجّه المستفسر لحجز موعد استشارة رسمي مع الأستاذ المحامي.
+قواعد اللغة والردود:
+1. مطابقة لغة المستفسر بدقة تامة:
+   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالإنجليزية أجب بإنجليزية قانونية واضحة، إذا كتب بالكردية أجب بالكردية، إذا كتب بالفرنسية أجب بالفرنسية، إذا كتب بالعربية أو العامية العراقية أجب بأسلوب قانوني عراقي رصين ومفهوم).
+   - قم بترجمة التنبيه القانوني الإلزامي في نهاية الرسالة إلى نفس لغة المراجع.
 
-نص التنبيه الختامي (يوضع في نهاية كل رد بسطرين فقط):
+قواعد الاستشارة الإلزامية:
+1. الإيجاز والتركيز المباشر: أجب عن السؤال مباشرة في أول سطر دون مقدمات إنشائية.
+   - إذا سأل عن الأسعار: اذكر سعر الاستشارة التي تخص سؤاله مباشرة مع رابط الاستمارة.
+   - إذا سأل عن الموقع: بغداد - زيونة - قرب دار الأزياء العراقية.
+   - إذا سأل عن الدوام: من الأحد إلى الخميس؛ الفترة الصباحية للمحاكم، والمقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
+2. لائحة الأجور الرسمية للاستشارات:
+   - استشارات الأحوال الشخصية (طلاق، نفقة، حضانة): 75,000 دينار عراقي (حوالي 55 دولار أمريكي).
+   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي (حوالي 110 دولار أمريكي).
+   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي (حوالي 220 دولار أمريكي).
+3. سياسة الدفع:
+   - الدفع إلكتروني حصراً ومسبقاً لجميع الاستشارات لتثبيت الحجز، ولا يُقبل الدفع النقدي (الكاش) نهائياً حتى داخل مقر المكتب.
+4. رابط حجز المواعيد:
+   https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform
+5. يُمنع صياغة لوائح دعاوى تفصيلية عبر المحادثة، بل وجّه المراجع لحجز موعد استشارة رسمي مع الأستاذ المحامي.
+
+التنبيه الختامي الإلزامي (يترجم لنفس لغة المراجع في نهاية الرد):
 "⚖️ تنبيه: هذا توجيه أولي صادر آلياً ولا يعد استشارة رسمية. لتثبيت موعد استشارة ودراسة الملف رسمياً، يرجى التقديم عبر الاستمارة الإلكترونية: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 """
 
 def generate_ai_response(user_query):
     full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
-    # استدعاء الموديلات السريعة مباشرة وتفادي الفحص البطيء
-    for candidate in ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]:
+    for candidate in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
         try:
             res = ai_client.models.generate_content(model=candidate, contents=full_prompt)
             if res and res.text:
                 return res.text
-        except Exception as e:
+        except Exception:
             continue
     return None
 
@@ -63,16 +63,16 @@ def process_message_background(message):
         from_number = message["from"]
         msg_type = message.get("type")
 
-        # 1. الرسائل النصية
+        # 1. الرسائل المكتوبة (متعددة اللغات)
         if msg_type == "text":
             user_query = message["text"]["body"]
-            print(f"Processing text from {from_number}: {user_query}", flush=True)
+            print(f"Message from {from_number}: {user_query}", flush=True)
 
             ai_reply = generate_ai_response(user_query)
             if not ai_reply:
                 ai_reply = (
-                    "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n"
-                    "نعتذر عن تعذر المعالجة الآلية حالياً. يتم تدقيق الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
+                    "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
+                    "يرجى حجز موعد استشارة رسمي عبر الرابط التالي:\n"
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
 
@@ -86,12 +86,12 @@ def process_message_background(message):
         elif msg_type in ["image", "document"]:
             media_id = message[msg_type].get("id")
             caption = message[msg_type].get("caption", "")
-            doc_title = "صورة" if msg_type == "image" else "مستند PDF"
+            doc_title = "صورة" if msg_type == "image" else "مستند"
 
             receipt = (
-                f"✅ تم استلام الـ ({doc_title}) بنجاح.\n"
-                "سيتم تدقيق الأوراق وعرضها على الأستاذ المحامي وفق جدول أعماله في المحاكم.\n\n"
-                "لحجز وتثبيت موعد رسمي (الدفع إلكتروني مسبقاً):\n"
+                f"✅ تم استلام الـ ({doc_title}) بنجاح، وسيتم عرضه على الأستاذ المحامي وفق جدول أعماله.\n"
+                f"Document/File received successfully and forwarded for legal review.\n\n"
+                "لتثبيت موعد استشارة رسمي / To book an official consultation:\n"
                 "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
             )
             send_whatsapp_message(from_number, receipt)
@@ -108,9 +108,9 @@ def process_message_background(message):
             media_id = audio_obj.get("id")
 
             audio_receipt = (
-                "🎙️ تم استلام التسجيل الصوتي بنجاح.\n"
-                "سيتم الاستماع إليه وتدقيقه من قبل الأستاذ المحامي وفق جدول أعماله.\n\n"
-                "لتثبيت موعد استشارة رسمي (الدفع إلكتروني مسبقاً عبر الاستمارة):\n"
+                "🎙️ تم استلام التسجيل الصوتي بنجاح، وسيتم الاستماع إليه وتدقيقه من قبل الأستاذ المحامي وفق جدول أعماله.\n"
+                "Voice note received successfully and forwarded to the attorney for review.\n\n"
+                "لتثبيت موعد استشارة رسمي / To book an official consultation:\n"
                 "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
             )
             send_whatsapp_message(from_number, audio_receipt)
@@ -121,7 +121,7 @@ def process_message_background(message):
                 send_whatsapp_media(ADMIN_PHONE, "audio", media_id)
 
     except Exception as e:
-        print(f"Error in background processing: {e}", flush=True)
+        print(f"Error: {e}", flush=True)
 
 @app.route("/", methods=["GET"])
 def home():
@@ -150,14 +150,13 @@ def webhook():
             message = data["entry"][0]["changes"][0]["value"]["messages"][0]
             msg_id = message.get("id")
 
-            # منع التكرار
             if msg_id in PROCESSED_MESSAGES:
                 return "EVENT_RECEIVED", 200
             PROCESSED_MESSAGES.add(msg_id)
             if len(PROCESSED_MESSAGES) > 1000:
                 PROCESSED_MESSAGES.clear()
 
-            # تشغيل المعالجة في الخلفية والرد على واتساب فوراً دون انتظار
+            # تشغيل المعالجة في الخلفية لمنع تكرار الرسائل
             thread = threading.Thread(target=process_message_background, args=(message,))
             thread.daemon = True
             thread.start()
