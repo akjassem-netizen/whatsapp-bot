@@ -57,25 +57,50 @@ def generate_ai_response(user_query):
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_query}
-        ],
-        "temperature": 0.2
-    }
 
+    # قائمة الموديلات المجانية الشائعة في جروك بالترتيب
+    models_to_try = [
+        "llama-3.1-8b-instant",
+        "llama3-8b-8192",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it"
+    ]
+
+    last_err = ""
+    for model_name in models_to_try:
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_query}
+            ],
+            "temperature": 0.2
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=20)
+            if response.status_code == 200:
+                data = response.json()
+                return data["choices"][0]["message"]["content"], None
+            else:
+                last_err = f"{model_name}: {response.text}"
+        except Exception as e:
+            last_err = str(e)
+
+    # محاولة جلب الموديلات المتاحة ديناميكياً إذا فشلت الأسماء المحددة
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
-        if response.status_code == 200:
-            data = response.json()
-            reply = data["choices"][0]["message"]["content"]
-            return reply, None
-        else:
-            return None, f"Groq Error {response.status_code}: {response.text}"
-    except Exception as e:
-        return None, f"Connection Error: {e}"
+        models_res = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=10)
+        if models_res.status_code == 200:
+            available = [m["id"] for m in models_res.json().get("data", []) if "whisper" not in m["id"].lower()]
+            for dyn_model in available[:3]:
+                payload["model"] = dyn_model
+                response = requests.post(url, headers=headers, json=payload, timeout=20)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data["choices"][0]["message"]["content"], None
+    except Exception:
+        pass
+
+    return None, f"Groq Error: {last_err}"
 
 def separate_client_and_admin_text(raw_text):
     delimiter = "###ترجمة_للإدارة###"
@@ -110,7 +135,7 @@ def process_message_background(message):
             else:
                 client_reply, admin_translation = separate_client_and_admin_text(ai_raw_reply)
 
-            # إرسال الرد للمراجع بلغته
+            # إرسال الرد للمراجع بلغته الصافية
             send_whatsapp_message(from_number, client_reply)
 
             # إرسال الإشعار والترجمة لرقمك الشخصي
