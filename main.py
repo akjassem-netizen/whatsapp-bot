@@ -17,8 +17,14 @@ SYSTEM_PROMPT = """
 
 قواعد اللغة والردود الإلزامية:
 1. مطابقة لغة المستفسر بدقة تامة:
-   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالكردية أجب بالكردية تماماً، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالفرنسية أو التركية أجب بها، وإذا كتب بالعربية أجب بالعربية).
+   - يجب الرد حصراً بنفس اللغة التي كتب بها المراجع (إذا كتب بالكردية أجب بالكردية تماماً، إذا كتب بالإنجليزية أجب بالإنجليزية، إذا كتب بالصينية أجب بالصينية، وإذا كتب بالعربية أجب بالعربية).
    - ترجم نص التنبيه الختامي إلى نفس لغة المراجع.
+
+2. قاعدة الترجمة للإدارة (مهمة جداً):
+   - إذا كانت رسالة المستفسر بأي لغة غير العربية (مثل الإنجليزية، الكردية، الصينية، الفرنسية... إلخ)، اكتب ردك للمراجع أولاً، ثم أضف في نهاية النص الفاصل التالي تماماً:
+     ###ترجمة_للإدارة###
+     واكتب تحته ترجمة عربية دقيقة لسؤال المراجع وتوضيحاً لمطلبه حتى يفهمه المحامي فوراً.
+   - إذا كانت رسالة المستفسر باللغة العربية، أجب بالعربية مباشرة ولا تضع الفاصل نهائياً.
 
 قواعد الاستشارة الإلزامية:
 1. الإيجاز والتركيز المباشر: أجب عن السؤال مباشرة في أول سطر دون مقدمات إنشائية.
@@ -64,7 +70,6 @@ def generate_ai_response(user_query):
     full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
     last_err = ""
     
-    # استخدام الموديل المعتمد رسميًا حسب سجل السيرفر
     candidate_models = ["gemini-3.6-flash", "gemini-3.6-pro", "gemini-3-flash"]
     
     for model_name in candidate_models:
@@ -76,7 +81,6 @@ def generate_ai_response(user_query):
             last_err = f"{model_name}: {e}"
             print(f"Error with {model_name}: {e}", flush=True)
 
-    # فحص احتياطي ديناميكي في حال تغير مسمى الموديل
     try:
         for m in client.models.list():
             name = m.name.replace("models/", "")
@@ -93,6 +97,15 @@ def generate_ai_response(user_query):
 
     return None, last_err
 
+def separate_client_and_admin_text(raw_text):
+    delimiter = "###ترجمة_للإدارة###"
+    if delimiter in raw_text:
+        parts = raw_text.split(delimiter, 1)
+        client_reply = parts[0].strip()
+        admin_trans = parts[1].strip()
+        return client_reply, admin_trans
+    return raw_text.strip(), None
+
 def process_message_background(message):
     try:
         from_number = message["from"]
@@ -103,21 +116,36 @@ def process_message_background(message):
             user_query = message["text"]["body"]
             print(f"Message from {from_number}: {user_query}", flush=True)
 
-            ai_reply, error_detail = generate_ai_response(user_query)
+            ai_raw_reply, error_detail = generate_ai_response(user_query)
             
-            if not ai_reply:
-                ai_reply = (
+            if not ai_raw_reply:
+                client_reply = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
                     "يرجى حجز موعد استشارة رسمي عبر الرابط التالي:\n"
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
+                admin_translation = None
                 if error_detail and from_number != ADMIN_PHONE:
                     send_whatsapp_message(ADMIN_PHONE, f"⚠️ *خطأ فني في الذكاء الاصطناعي:*\n{error_detail}")
+            else:
+                client_reply, admin_translation = separate_client_and_admin_text(ai_raw_reply)
 
-            send_whatsapp_message(from_number, ai_reply)
+            # إرسال الرد للمراجع بلغته فقط دون أي أثر للترجمة
+            send_whatsapp_message(from_number, client_reply)
 
+            # إرسال التفاصيل لرقمك الشخصي مع الترجمة الفورية للعربية
             if from_number != ADMIN_PHONE:
-                admin_msg = f"📩 *استفسار جديد*\n👤 *المستفسر:* +{from_number}\n💬 *النص:* {user_query}\n\n🤖 *الرد:*\n{ai_reply}"
+                if admin_translation:
+                    admin_msg = (
+                        f"📩 *استفسار وارد (بلغة أجنبية)*\n"
+                        f"👤 *المستفسر:* +{from_number}\n"
+                        f"💬 *النص كما ورد:*\n{user_query}\n\n"
+                        f"🌐 *ترجمة السؤال للمحامي:*\n{admin_translation}\n\n"
+                        f"🤖 *الرد المرسل إليه:*\n{client_reply}"
+                    )
+                else:
+                    admin_msg = f"📩 *استفسار جديد*\n👤 *المستفسر:* +{from_number}\n💬 *النص:* {user_query}\n\n🤖 *الرد:*\n{client_reply}"
+                
                 send_whatsapp_message(ADMIN_PHONE, admin_msg)
 
         # 2. الصور والمستندات
