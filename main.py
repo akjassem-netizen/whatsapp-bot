@@ -5,14 +5,14 @@ from google import genai
 
 app = Flask(__name__)
 
-# استدعاء المتغيرات السرية وتنظيفها
+# استدعاء المتغيرات وتنظيفها
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "hashimi2026").strip()
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "").strip().strip('"').strip("'")
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "").strip().strip('"').strip("'")
 raw_gemini_key = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_API_KEY = raw_gemini_key.strip().strip('"').strip("'") if raw_gemini_key else None
 
-# رقم هاتف المحامي الشخصي للإشعارات والمستندات
+# رقم المحامي الشخصي للإشعارات والمستندات
 ADMIN_PHONE = "9647702956021"
 
 # إعداد عميل الذكاء الاصطناعي
@@ -21,7 +21,16 @@ if GEMINI_API_KEY:
 else:
     ai_client = genai.Client()
 
-# التعليمات والضوابط القانونية ورابط الحجز
+# فحص وطباعة الموديلات المتاحة في السجلات عند الإقلاع
+try:
+    print("=== AVAILABLE GEMINI MODELS ON THIS ACCOUNT ===", flush=True)
+    for m in ai_client.models.list():
+        print(f"Model: {m.name}", flush=True)
+    print("===============================================", flush=True)
+except Exception as e:
+    print(f"Startup listing info: {e}", flush=True)
+
+# الضوابط القانونية ورابط الحجز
 SYSTEM_PROMPT = """
 أنت المساعد الآلي الذكي لـ 'مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية' في العراق.
 
@@ -51,11 +60,48 @@ https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QA
 "⚠️ تنبيه إخلاء مسؤولية: هذا رد آلي مبرمج صادر عن المساعد الذكي لمكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية لغرض الاسترشاد والتوجيه الأولي فقط، ولا يُعد استشارة قانونية رسمية ولا ينشئ رابطة توكيل. لحجز موعد استشارة رسمية ودراسة القضية (حضورياً أو عن بُعد)، يُرجى التقديم عبر رابط الاستمارة: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
 """
 
+def generate_ai_response(user_query):
+    full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
+    
+    # 1. البحث التلقائي عبر قائمة الموديلات المتاحة في الحساب
+    try:
+        for m in ai_client.models.list():
+            m_clean = m.name.replace("models/", "")
+            if any(skip in m_clean.lower() for skip in ["embed", "imagen", "veo", "aqa"]):
+                continue
+            try:
+                res = ai_client.models.generate_content(model=m_clean, contents=full_prompt)
+                if res and res.text:
+                    print(f"Success with discovered model: {m_clean}", flush=True)
+                    return res.text
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"Model listing discovery error: {e}", flush=True)
+
+    # 2. قائمة احتياطية في حال تعذر القائمة
+    fallback_list = [
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro-latest"
+    ]
+    for candidate in fallback_list:
+        try:
+            res = ai_client.models.generate_content(model=candidate, contents=full_prompt)
+            if res and res.text:
+                print(f"Success with fallback model: {candidate}", flush=True)
+                return res.text
+        except Exception:
+            continue
+
+    return None
+
 @app.route("/", methods=["GET"])
 def home():
     return "Legal Assistant Bot is Active", 200
 
-# مسار استقبال وتأكيد الـ Webhook
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
@@ -80,52 +126,45 @@ def webhook():
             from_number = message["from"]
             msg_type = message.get("type")
 
-            # 1. معالجة الرسائل النصية
+            # معالجة النصوص
             if msg_type == "text":
                 user_query = message["text"]["body"]
-                print(f"Message from {from_number}: {user_query}", flush=True)
+                print(f"Received query from {from_number}: {user_query}", flush=True)
 
-                try:
-                    response = ai_client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}",
-                    )
-                    reply_text = response.text
-                except Exception as e:
-                    print(f"Gemini Error: {e}", flush=True)
-                    reply_text = (
+                ai_reply = generate_ai_response(user_query)
+                if not ai_reply:
+                    ai_reply = (
                         "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n"
                         "نعتذر عن تعذر معالجة الطلب آلياً في الوقت الحالي. "
                         "يتم الاطلاع على الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
                         "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                     )
 
-                # إرسال الرد للمراجع
-                send_whatsapp_message(from_number, reply_text)
+                send_whatsapp_message(from_number, ai_reply)
 
-                # إرسال إشعار فوري إلى رقم المحامي الشخصي
+                # إشعار فوري للمحامي
                 if from_number != ADMIN_PHONE:
                     admin_summary = (
                         f"📩 *استفسار جديد عبر البوت*\n"
                         f"👤 *المراجع:* +{from_number}\n"
                         f"💬 *السؤال:* {user_query}\n\n"
-                        f"🤖 *رد البوت:*\n{reply_text}"
+                        f"🤖 *رد البوت:*\n{ai_reply}"
                     )
                     send_whatsapp_message(ADMIN_PHONE, admin_summary)
 
-            # 2. معالجة الصور والمستندات
+            # معالجة الصور والمستندات
             elif msg_type in ["image", "document"]:
                 media_id = message[msg_type].get("id")
                 caption = message[msg_type].get("caption", "لا يوجد وصف")
                 doc_title = "صورة" if msg_type == "image" else "مستند PDF/ملف"
 
-                client_receipt = (
+                receipt_msg = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n\n"
                     f"✅ تم استلام الـ ({doc_title}) بنجاح. سيتم تدقيقه وعرضه على الأستاذ المحامي شخصياً وفق جدول أعماله والتزاماته في المحاكم.\n\n"
                     "لتثبيت موعد مقابلة رسمية:\n"
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
-                send_whatsapp_message(from_number, client_receipt)
+                send_whatsapp_message(from_number, receipt_msg)
 
                 if from_number != ADMIN_PHONE:
                     notice = f"📎 *وصل {doc_title} جديد للمكتب*\n👤 *من المراجع:* +{from_number}\n📝 *الوصف:* {caption}"
