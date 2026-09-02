@@ -87,26 +87,18 @@ def webhook():
 
                 try:
                     response = ai_client.models.generate_content(
-                        model="gemini-2.0-flash",
+                        model="gemini-2.5-flash",
                         contents=f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}",
                     )
                     reply_text = response.text
                 except Exception as e:
-                    print(f"Gemini 2.0 Error: {e}", flush=True)
-                    try:
-                        response = ai_client.models.generate_content(
-                            model="gemini-1.5-flash",
-                            contents=f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}",
-                        )
-                        reply_text = response.text
-                    except Exception as e2:
-                        print(f"Gemini 1.5 Error: {e2}", flush=True)
-                        reply_text = (
-                            "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n"
-                            "نعتذر عن تعذر معالجة الطلب آلياً في الوقت الحالي. "
-                            "يتم الاطلاع على الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
-                            "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
-                        )
+                    print(f"Gemini Error: {e}", flush=True)
+                    reply_text = (
+                        "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n"
+                        "نعتذر عن تعذر معالجة الطلب آلياً في الوقت الحالي. "
+                        "يتم الاطلاع على الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
+                        "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
+                    )
 
                 # إرسال الرد للمراجع
                 send_whatsapp_message(from_number, reply_text)
@@ -121,7 +113,7 @@ def webhook():
                     )
                     send_whatsapp_message(ADMIN_PHONE, admin_summary)
 
-            # 2. معالجة الصور والمستندات القانونية
+            # 2. معالجة الصور والمستندات
             elif msg_type in ["image", "document"]:
                 media_id = message[msg_type].get("id")
                 caption = message[msg_type].get("caption", "لا يوجد وصف")
