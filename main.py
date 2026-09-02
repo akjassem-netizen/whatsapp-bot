@@ -12,7 +12,7 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "").strip().strip('"').strip
 raw_gemini_key = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_API_KEY = raw_gemini_key.strip().strip('"').strip("'") if raw_gemini_key else None
 
-# رقم هاتف المحامي الشخصي للإشعارات والمستندات (بدون إشارة +)
+# رقم هاتف المحامي الشخصي للإشعارات والمستندات
 ADMIN_PHONE = "9647702956021"
 
 # إعداد عميل الذكاء الاصطناعي
@@ -127,7 +127,6 @@ def webhook():
                 caption = message[msg_type].get("caption", "لا يوجد وصف")
                 doc_title = "صورة" if msg_type == "image" else "مستند PDF/ملف"
 
-                # إشعار المراجع بالاستلام
                 client_receipt = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n\n"
                     f"✅ تم استلام الـ ({doc_title}) بنجاح. سيتم تدقيقه وعرضه على الأستاذ المحامي شخصياً وفق جدول أعماله والتزاماته في المحاكم.\n\n"
@@ -136,10 +135,8 @@ def webhook():
                 )
                 send_whatsapp_message(from_number, client_receipt)
 
-                # تحويل الملف وإشعار المحامي
                 if from_number != ADMIN_PHONE:
                     notice = f"📎 *وصل {doc_title} جديد للمكتب*\n👤 *من المراجع:* +{from_number}\n📝 *الوصف:* {caption}"
-                    # إعادة إرسال المرفق إلى واتساب المحامي
                     sent = send_whatsapp_media(ADMIN_PHONE, msg_type, media_id, notice)
                     if not sent:
                         send_whatsapp_message(ADMIN_PHONE, notice)
@@ -178,81 +175,6 @@ def send_whatsapp_media(to_number, media_type, media_id, caption=""):
 
     res = requests.post(url, headers=headers, json=payload)
     return res.status_code == 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-  * استشارات الأحوال الشخصية: 75,000 دينار عراقي.
-  * الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي.
-  * الاستشارات الجزائية والجنائية: 300,000 دينار عراقي.
-- آلية الدفع: وضّح للموكل أنه بعد إرسال استمارة الحجز، يتواصل المكتب معه لتأكيد الموعد وإرسال تفاصيل الدفع عبر وسائل الدفع الإلكترونية المحلية المعتمدة أو روابط الدفع المباشرة (Payment Links) للاستشارة عن بُعد، أو سدادها مباشرة داخل المكتب للمقابلات الحضورية.
-
-نص إخلاء المسؤولية الإلزامي:
-اختم كل رد بدون استثناء بالنص التالي في سطر مستقل:
-"⚠️ تنبيه إخلاء مسؤولية: هذا رد آلي مبرمج صادر عن المساعد الذكي لمكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية لغرض الاسترشاد والتوجيه الأولي فقط، ولا يُعد استشارة قانونية رسمية ولا ينشئ رابطة توكيل. لحجز موعد استشارة رسمية ودراسة القضية (حضورياً أو عن بُعد)، يُرجى التقديم عبر رابط الاستمارة: https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
-"""
-
-@app.route("/", methods=["GET"])
-def home():
-    return "Legal Assistant Bot is Active", 200
-
-# مسار استقبال وتأكيد الـ Webhook
-@app.route("/webhook", methods=["GET", "POST"])
-def webhook():
-    if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
-
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            return challenge, 200
-        return "Verification failed", 403
-
-    if request.method == "POST":
-        data = request.get_json()
-
-        if (
-            data.get("entry")
-            and data["entry"][0].get("changes")
-            and data["entry"][0]["changes"][0].get("value")
-            and "messages" in data["entry"][0]["changes"][0]["value"]
-        ):
-            message = data["entry"][0]["changes"][0]["value"]["messages"][0]
-            from_number = message["from"]
-
-            if message.get("type") == "text":
-                user_query = message["text"]["body"]
-
-                try:
-                    response = ai_client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}",
-                    )
-                    reply_text = response.text
-                except Exception:
-                    reply_text = (
-                        "أهلاً بك في مكتب المحامي علي كاظم الهاشمي للمحاماة والخدمات القانونية.\n"
-                        "نعتذر عن تعذر معالجة الطلب آلياً في الوقت الحالي. "
-                        "يتم الاطلاع على الرسائل من قبل المكتب تباعاً، أو يمكنك حجز موعد عبر الاستمارة:\n"
-                        "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
-                    )
-
-                send_whatsapp_message(from_number, reply_text)
-
-        return "EVENT_RECEIVED", 200
-
-def send_whatsapp_message(to_number, text):
-    url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to_number,
-        "type": "text",
-        "text": {"body": text}
-    }
-    requests.post(url, headers=headers, json=payload)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
