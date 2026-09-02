@@ -26,9 +26,9 @@ SYSTEM_PROMPT = """
    - إذا سأل عن الموقع: بغداد - زيونة - قرب دار الأزياء العراقية.
    - إذا سأل عن الدوام: من الأحد إلى الخميس؛ الفترة الصباحية للمحاكم، والمقابلات المكتبية (2:00 ظ - 4:00 ع) بحجز مسبق.
 2. لائحة الأجور الرسمية للاستشارات:
-   - استشارات الأحوال الشخصية (طلاق، نفقة، حضانة): 75,000 دينار عراقي.
-   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي.
-   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي.
+   - استشارات الأحوال الشخصية (طلاق، نفقة، حضانة): 75,000 دينار عراقي (حوالي 55 دولار أمريكي).
+   - الاستشارات المدنية والشركات والعقود: 150,000 دينار عراقي (حوالي 110 دولار أمريكي).
+   - الاستشارات الجزائية والجنائية: 300,000 دينار عراقي (حوالي 220 دولار أمريكي).
 3. سياسة الدفع:
    - الدفع إلكتروني حصراً ومسبقاً لجميع الاستشارات لتثبيت الحجز، ولا يُقبل الدفع النقدي (الكاش) نهائياً حتى داخل مقر المكتب.
 4. رابط حجز المواعيد:
@@ -48,7 +48,7 @@ def get_gemini_client():
     ).strip().strip('"').strip("'")
     
     if not api_key:
-        return None, "مفتاح GEMINI_API_KEY غير موجود في متغيرات سيرفر Render"
+        return None, "مفتاح GEMINI_API_KEY غير مضاف في إعدادات Render"
     
     try:
         client = genai.Client(api_key=api_key)
@@ -64,15 +64,33 @@ def generate_ai_response(user_query):
     full_prompt = f"{SYSTEM_PROMPT}\n\nرسالة المستفسر: {user_query}"
     last_err = ""
     
-    for model_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+    # استخدام الموديل المعتمد رسميًا حسب سجل السيرفر
+    candidate_models = ["gemini-3.6-flash", "gemini-3.6-pro", "gemini-3-flash"]
+    
+    for model_name in candidate_models:
         try:
             res = client.models.generate_content(model=model_name, contents=full_prompt)
             if res and res.text:
                 return res.text, None
         except Exception as e:
-            last_err = f"الموديل {model_name} تعثر: {e}"
-            print(last_err, flush=True)
-            
+            last_err = f"{model_name}: {e}"
+            print(f"Error with {model_name}: {e}", flush=True)
+
+    # فحص احتياطي ديناميكي في حال تغير مسمى الموديل
+    try:
+        for m in client.models.list():
+            name = m.name.replace("models/", "")
+            if any(skip in name.lower() for skip in ["embed", "imagen", "veo", "aqa"]):
+                continue
+            try:
+                res = client.models.generate_content(model=name, contents=full_prompt)
+                if res and res.text:
+                    return res.text, None
+            except Exception:
+                continue
+    except Exception as e:
+        last_err = f"Dynamic listing error: {e}"
+
     return None, last_err
 
 def process_message_background(message):
@@ -87,7 +105,6 @@ def process_message_background(message):
 
             ai_reply, error_detail = generate_ai_response(user_query)
             
-            # إذا تعذر الذكاء الاصطناعي نرسل البديل وننبه الإدارة بالخطأ فوراً
             if not ai_reply:
                 ai_reply = (
                     "أهلاً بك في مكتب المحامي علي كاظم الهاشمي.\n"
@@ -95,7 +112,7 @@ def process_message_background(message):
                     "https://docs.google.com/forms/d/e/1FAIpQLSdVxyld_U5Mdp-4RLcuA8HdQvAvlYWdd1fiQ8QAavwJj_Ev7w/viewform"
                 )
                 if error_detail and from_number != ADMIN_PHONE:
-                    send_whatsapp_message(ADMIN_PHONE, f"⚠️ *تنبيه تعذر الذكاء الاصطناعي:*\n{error_detail}")
+                    send_whatsapp_message(ADMIN_PHONE, f"⚠️ *خطأ فني في الذكاء الاصطناعي:*\n{error_detail}")
 
             send_whatsapp_message(from_number, ai_reply)
 
